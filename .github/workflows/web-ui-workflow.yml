@@ -23,24 +23,19 @@ jobs:
         distribution: 'temurin'
 
     # install browser
-    - name: Setup Chrome
-      uses: browser-actions/setup-chrome@v2.2.0
+    - name: Setup Chrome with extra capabilities
+      uses: browser-actions/setup-chrome@v1.4.0
+      with:
+          chrome-version: stable
+          chrome-options: '--headless'
   
-    # Configure Gradle for optimal use in GitHub Actions, including caching of downloaded dependencies.
-    # See: https://github.com/gradle/actions/blob/main/setup-gradle/README.md
-    - name: Setup Gradle
-      uses: gradle/actions/setup-gradle@af1da67850ed9a4cedd57bfd976089dd991e2582 # v4.0.0
+    - name: Build with Gradle
+      run: |
+          chmod +x gradlew  # Make gradlew executable
+          ./gradlew build   # Run the build task before tests
 
-    - name: Build with Gradle Wrapper
-      run: ./gradlew build
-
-    # setup gradlew
-    - name: Setup Gradlew
-      run: chmod +x gradlew
-
-    # Execute gradle command for running cucumber test
-    - name: Execute Test
-      run: ./gradlew cucumber
+    - name: Run Tests
+      run: ./gradlew clean test  # Run tests after the build step
 
   dependency-submission:
 
