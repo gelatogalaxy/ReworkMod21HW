@@ -34,6 +34,10 @@ jobs:
     - name: Build with Gradle Wrapper
       run: ./gradlew build
 
+    # setup gradlew
+    - name: Setup Gradlew
+      run: chmod +x gradlew
+
     # Execute gradle command for running cucumber test
     - name: Execute Test
       run: ./gradlew cucumber
