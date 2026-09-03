@@ -30,11 +30,18 @@ configurations {
     }
 }
 
+// PERBAIKAN: blok `test` sebelumnya dikomentari, jadi konfigurasi test
+// sepenuhnya bergantung pada default Gradle dan hasilnya tidak deterministik.
 test {
-    // Cucumber runs through the JUnit 4 runner (CucumberTest), which is Gradle's default.
+    // CucumberTest memakai runner JUnit 4 (@RunWith(Cucumber.class)), bukan
+    // JUnit Platform. Menyalakan useJUnitPlatform() justru membuat nol test
+    // terdeteksi, sehingga di sini dipakai useJUnit().
     useJUnit()
-    // Always re-run the scenarios so the HTML/JSON reports are regenerated in CI.
+    // PERBAIKAN: tanpa ini Gradle menandai task test UP-TO-DATE saat source
+    // tidak berubah, sehingga reports/cucumber.html tidak pernah dibuat ulang
+    // dan artifact/GitHub Pages berisi laporan basi.
     outputs.upToDateWhen { false }
+    // Log hasil skenario ke console agar kegagalan terlihat di log Actions.
     testLogging {
         events "passed", "skipped", "failed"
         showStandardStreams = true
