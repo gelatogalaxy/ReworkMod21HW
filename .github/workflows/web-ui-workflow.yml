@@ -5,46 +5,84 @@ on:
     branches: [ "master" ]
   pull_request:
     branches: [ "master" ]
-  workflow_dispatch: 
+  workflow_dispatch:
+
+# PERBAIKAN: deploy ke gh-pages sebelumnya memakai secrets.PAT. Dengan
+# permissions ini, GITHUB_TOKEN bawaan sudah cukup untuk push ke gh-pages
+# sehingga workflow tidak lagi bergantung pada secret manual yang bisa hilang.
+permissions:
+  contents: write
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3  # Checkout the repository
+      # PERBAIKAN: actions/checkout@v3 sudah deprecated di runner terbaru.
+      - uses: actions/checkout@v4
 
-      - name: Set up JDK 11
-        uses: actions/setup-java@v4.0.0
+      # PERBAIKAN UTAMA: workflow lama memakai JDK 11, padahal
+      # gradle/wrapper/gradle-wrapper.properties memakai Gradle 9.3.0 yang
+      # minimal butuh Java 17. Akibatnya build gagal sebelum satu test pun jalan.
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
         with:
-          java-version: '11'  # Ganti dengan versi Java lain seperti '8', '17'
-          distribution: 'temurin'  # Alternatif: 'adoptopenjdk', 'zulu'
+          java-version: '17'
+          distribution: 'temurin'
+          # Cache dependency Gradle agar build tidak mengunduh ulang tiap run.
+          cache: 'gradle'
 
-      - name: Setup Chrome with extra capabilities
-        uses: browser-actions/setup-chrome@v1.4.0
+      # PERBAIKAN: install-chromedriver memastikan versi chromedriver cocok
+      # dengan Chrome yang dipasang, dan step ini meng-export CHROME_PATH yang
+      # dibaca StepDefs. Opsi headless kini di-set dari kode (ChromeOptions),
+      # bukan lewat chrome-options yang sebelumnya dikomentari.
+      - name: Setup Chrome
+        uses: browser-actions/setup-chrome@v1
         with:
-          chrome-version: latest # Ganti dengan 'stable' untuk versi stabil
-          #chrome-options: '--headless' #(Jika ingin menjalankan Chrome dalam mode headless)
+          chrome-version: stable
+          install-chromedriver: true
 
-      - name: Build with Gradle
+      # PERBAIKAN: sebelumnya `./gradlew build` menjalankan test, lalu step
+      # berikutnya `./gradlew clean test` menghapus hasilnya dan menjalankan
+      # test untuk kedua kalinya. Sekarang build tanpa test, lalu test sekali.
+      - name: Build (without tests)
         run: |
-          chmod +x gradlew  # Make gradlew executable
-          ./gradlew build   # Run the build task before tests
+          chmod +x gradlew
+          ./gradlew build -x test
 
       - name: Run Tests
-        run: ./gradlew clean test  # Run tests after the build step
+        run: ./gradlew test
+
+      # PERBAIKAN: CucumberOptions menulis laporan ke reports/cucumber.html dan
+      # reports/cucumber.json, bukan ke target/index.html seperti yang dirujuk
+      # workflow lama. Akibatnya upload-artifact dan deploy Pages selalu kosong.
+      # Step ini menyalin laporan yang benar-benar dihasilkan ke folder public/,
+      # dan tetap membuat index.html placeholder jika laporan gagal dibuat
+      # supaya deploy tidak error.
+      - name: Prepare report for publishing
+        if: always()
+        run: |
+          mkdir -p public
+          if [ -f reports/cucumber.html ]; then
+            cp reports/cucumber.html public/index.html
+            cp -f reports/cucumber.json public/ 2>/dev/null || true
+          else
+            echo "<html><body><h1>No cucumber report was generated</h1></body></html>" > public/index.html
+          fi
 
       - name: Archive test results
-        uses: actions/upload-artifact@v4.3.0
-        if: always() #always() # success() , failure(), canceled()
-        with:
-          name: cucumber reports
-          path: target/index.html  # Path to test reports
-
-       # Deploy to GitHub Pages
-      - name: Deploy to GitHub Pages
+        uses: actions/upload-artifact@v4
+        # if: always() supaya laporan tetap terunggah walau test gagal.
         if: always()
-        uses: peaceiris/actions-gh-pages@v4.0.0
         with:
-          personal_token: ${{ secrets.PAT }}
-          publish_dir: target
+          name: cucumber-reports
+          path: public
+
+      # PERBAIKAN: deploy di-skip untuk event pull_request, karena PR dari fork
+      # tidak punya izin tulis dan hasil PR tidak seharusnya menimpa Pages.
+      - name: Deploy to GitHub Pages
+        if: always() && github.event_name != 'pull_request'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./public
