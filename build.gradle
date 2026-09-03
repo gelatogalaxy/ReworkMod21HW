@@ -29,3 +29,14 @@ configurations {
         extendsFrom testImplementation
     }
 }
+
+test {
+    // Cucumber runs through the JUnit 4 runner (CucumberTest), which is Gradle's default.
+    useJUnit()
+    // Always re-run the scenarios so the HTML/JSON reports are regenerated in CI.
+    outputs.upToDateWhen { false }
+    testLogging {
+        events "passed", "skipped", "failed"
+        showStandardStreams = true
+    }
+}

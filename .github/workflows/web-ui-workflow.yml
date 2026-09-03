@@ -5,46 +5,60 @@ on:
     branches: [ "master" ]
   pull_request:
     branches: [ "master" ]
-  workflow_dispatch: 
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3  # Checkout the repository
+      - uses: actions/checkout@v4
 
-      - name: Set up JDK 11
-        uses: actions/setup-java@v4.0.0
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
         with:
-          java-version: '11'  # Ganti dengan versi Java lain seperti '8', '17'
-          distribution: 'temurin'  # Alternatif: 'adoptopenjdk', 'zulu'
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'gradle'
 
-      - name: Setup Chrome with extra capabilities
-        uses: browser-actions/setup-chrome@v1.4.0
+      - name: Setup Chrome
+        uses: browser-actions/setup-chrome@v1
         with:
-          chrome-version: latest # Ganti dengan 'stable' untuk versi stabil
-          #chrome-options: '--headless' #(Jika ingin menjalankan Chrome dalam mode headless)
+          chrome-version: stable
+          install-chromedriver: true
 
-      - name: Build with Gradle
+      - name: Build (without tests)
         run: |
-          chmod +x gradlew  # Make gradlew executable
-          ./gradlew build   # Run the build task before tests
+          chmod +x gradlew
+          ./gradlew build -x test
 
       - name: Run Tests
-        run: ./gradlew clean test  # Run tests after the build step
+        run: ./gradlew test
+
+      - name: Prepare report for publishing
+        if: always()
+        run: |
+          mkdir -p public
+          if [ -f reports/cucumber.html ]; then
+            cp reports/cucumber.html public/index.html
+            cp -f reports/cucumber.json public/ 2>/dev/null || true
+          else
+            echo "<html><body><h1>No cucumber report was generated</h1></body></html>" > public/index.html
+          fi
 
       - name: Archive test results
-        uses: actions/upload-artifact@v4.3.0
-        if: always() #always() # success() , failure(), canceled()
-        with:
-          name: cucumber reports
-          path: target/index.html  # Path to test reports
-
-       # Deploy to GitHub Pages
-      - name: Deploy to GitHub Pages
+        uses: actions/upload-artifact@v4
         if: always()
-        uses: peaceiris/actions-gh-pages@v4.0.0
         with:
-          personal_token: ${{ secrets.PAT }}
-          publish_dir: target
+          name: cucumber-reports
+          path: public
+
+      - name: Deploy to GitHub Pages
+        if: always() && github.event_name != 'pull_request'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./public
