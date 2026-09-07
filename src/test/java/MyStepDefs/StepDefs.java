@@ -8,8 +8,13 @@ import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
 import io.cucumber.java.After;
 import io.github.bonigarcia.wdm.WebDriverManager;
+import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.WebElement;
 import org.openqa.selenium.chrome.ChromeOptions;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class StepDefs {
     // PERBAIKAN: sebelumnya driver dibuat langsung di field initializer
@@ -48,8 +53,6 @@ public class StepDefs {
         return driver;
     }
 
-    // PERBAIKAN: sebelumnya tidak ada teardown sama sekali, sehingga tiap
-    // skenario meninggalkan proses Chrome yang menggantung di runner.
     @After
     public void tearDown() {
         if (driver != null) {
@@ -87,11 +90,14 @@ public class StepDefs {
     @Then("user is on homepage")
     public void userIsOnHomepage() {
         homePage = new HomePagePOM(getDriver());
-        homePage.validateOnHomePage();
+        By productTitle = By.id("item_4_title_link");
+        WebElement productElement = driver.findElement(productTitle);
+        assertTrue(productElement.isDisplayed());
+        assertEquals("Sauce Labs Backpack", productElement.getText());
     }
 
     @Then("user able to see error message {string}")
     public void userAbleToSeeErrorMessage(String errorMessage) {
-        loginPage.validateErrorAppear(errorMessage);
+        assertTrue(driver.getPageSource().contains(errorMessage));
     }
 }

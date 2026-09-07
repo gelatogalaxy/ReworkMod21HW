@@ -1,11 +1,7 @@
 package Pages;
 
-import io.github.bonigarcia.wdm.WebDriverManager;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
-import org.openqa.selenium.chrome.ChromeDriver;
-
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class LoginPagePOM {
     WebDriver driver;
@@ -32,9 +28,5 @@ public class LoginPagePOM {
 
     public void clickLoginButton() {
         driver.findElement(loginButton).click();
-    }
-
-    public void validateErrorAppear(String errorMessage) {
-        assertTrue(driver.getPageSource().contains(errorMessage));
     }
 }
